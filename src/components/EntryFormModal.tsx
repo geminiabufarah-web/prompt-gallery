@@ -50,7 +50,8 @@ export const EntryFormModal: React.FC = () => {
     tags, 
     entries, 
     refreshData, 
-    addToast 
+    addToast,
+    compressionSettings
   } = useApp();
 
   // Multi-image state
@@ -280,7 +281,7 @@ export const EntryFormModal: React.FC = () => {
       for (let i = 0; i < imageItems.length; i++) {
         const item = imageItems[i];
         if (item.file) {
-          const res = await StorageService.uploadSingleImageFile(item.file, userId, entryTempId, i);
+          const res = await StorageService.uploadSingleImageFile(item.file, userId, entryTempId, i, compressionSettings);
           uploadedImages.push({
             id: `img-${Date.now()}-${i}`,
             image_path: res.imagePath,

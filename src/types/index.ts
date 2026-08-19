@@ -69,3 +69,10 @@ export interface PromptSimilarityResult {
   entry: Entry;
   similarityPercentage: number;
 }
+
+export interface ImageCompressionSettings {
+  quality: number; // 0.3 to 1.0 (e.g. 0.85 = 85%)
+  maxWidth: number; // 1920, 2048, 3840, or 0 (original)
+  thumbnailQuality: number; // 0.3 to 1.0 (e.g. 0.80 = 80%)
+}
+

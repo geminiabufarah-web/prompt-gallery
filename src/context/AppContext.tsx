@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { Entry, Collection, Tag, FilterState } from '../types';
+import { Entry, Collection, Tag, FilterState, ImageCompressionSettings } from '../types';
 import { StorageService } from '../lib/storage';
+import { getSavedCompressionSettings, saveCompressionSettings, DEFAULT_COMPRESSION_SETTINGS } from '../lib/imageUtils';
 
 interface ToastMessage {
   id: string;
@@ -17,6 +18,11 @@ interface AppContextType {
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   resetFilters: () => void;
   filteredEntries: Entry[];
+
+  // Image compression settings
+  compressionSettings: ImageCompressionSettings;
+  updateCompressionSettings: (settings: Partial<ImageCompressionSettings>) => void;
+  resetCompressionSettings: () => void;
 
   // Modal States
   selectedEntryForDetails: Entry | null;
@@ -81,6 +87,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [tags, setTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
+
+  // Image compression settings
+  const [compressionSettings, setCompressionSettings] = useState<ImageCompressionSettings>(() => getSavedCompressionSettings());
+
+  const updateCompressionSettings = useCallback((newSettings: Partial<ImageCompressionSettings>) => {
+    setCompressionSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      saveCompressionSettings(updated);
+      return updated;
+    });
+  }, []);
+
+  const resetCompressionSettings = useCallback(() => {
+    setCompressionSettings(DEFAULT_COMPRESSION_SETTINGS);
+    saveCompressionSettings(DEFAULT_COMPRESSION_SETTINGS);
+  }, []);
 
   // Modals state
   const [selectedEntryForDetails, setSelectedEntryForDetails] = useState<Entry | null>(null);
@@ -314,6 +336,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setFilters,
         resetFilters,
         filteredEntries,
+        compressionSettings,
+        updateCompressionSettings,
+        resetCompressionSettings,
         selectedEntryForDetails,
         setSelectedEntryForDetails,
         isEntryFormOpen,

@@ -1,6 +1,6 @@
-import { Entry, Collection, Tag, EntryImage } from '../types';
+import { Entry, Collection, Tag, EntryImage, ImageCompressionSettings } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
-import { createThumbnail, compressAndConvertToWebP, fileToDataUrl } from './imageUtils';
+import { createThumbnail, compressAndConvertToWebP, fileToDataUrl, getSavedCompressionSettings } from './imageUtils';
 
 const LOCAL_STORAGE_ENTRIES_KEY = 'prompt_gallery_entries';
 const LOCAL_STORAGE_COLLECTIONS_KEY = 'prompt_gallery_collections';
@@ -338,21 +338,27 @@ export class StorageService {
     file: File,
     userId: string = 'user',
     entryId: string = Date.now().toString(),
-    index: number = 0
+    index: number = 0,
+    compressionSettings?: ImageCompressionSettings
   ): Promise<{ imagePath: string; thumbnailPath: string }> {
-    // Generate both Full WebP (max 2048px, high quality) and Thumbnail WebP (max 400px) concurrently client-side
+    const config = compressionSettings || getSavedCompressionSettings();
+    const quality = typeof config.quality === 'number' ? config.quality : 0.85;
+    const maxWidth = typeof config.maxWidth === 'number' ? config.maxWidth : 2048;
+    const thumbQuality = typeof config.thumbnailQuality === 'number' ? config.thumbnailQuality : 0.80;
+
+    // Generate both Full WebP (custom max dimension & quality) and Thumbnail WebP concurrently client-side
     let fullWebp: { blob: Blob; dataUrl: string };
     let thumbWebp: { blob: Blob; dataUrl: string };
 
     try {
       [fullWebp, thumbWebp] = await Promise.all([
-        compressAndConvertToWebP(file, 2048, 2048, 0.85),
-        createThumbnail(file, 400, 400, 0.80),
+        compressAndConvertToWebP(file, maxWidth, maxWidth, quality),
+        createThumbnail(file, 400, 400, thumbQuality),
       ]);
     } catch (conversionErr) {
       console.warn('WebP compression failed, falling back to raw file:', conversionErr);
       const rawDataUrl = await fileToDataUrl(file);
-      const thumb = await createThumbnail(file, 400, 400, 0.80).catch(() => ({ blob: file, dataUrl: rawDataUrl }));
+      const thumb = await createThumbnail(file, 400, 400, thumbQuality).catch(() => ({ blob: file, dataUrl: rawDataUrl }));
       fullWebp = { blob: file, dataUrl: rawDataUrl };
       thumbWebp = thumb;
     }
