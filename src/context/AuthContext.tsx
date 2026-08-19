@@ -20,24 +20,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
-      // In local demo mode, treat as logged in local user
       setUser({
-        id: 'local-owner-user',
+        id: '6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4',
         app_metadata: {},
         user_metadata: { name: 'صاحب المشروع' },
         aud: 'authenticated',
         created_at: new Date().toISOString(),
-        email: 'admin@promptgallery.local',
+        email: 'geminiabufarah@gmail.com',
       } as User);
       setIsLoading(false);
       return;
     }
 
-    // Get current session from Supabase
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
+    // Check existing session or auto-login with owner
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      if (currentSession) {
+        setSession(currentSession);
+        setUser(currentSession.user);
+        setIsLoading(false);
+      } else {
+        // Auto-login single owner account seamlessly
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: 'geminiabufarah@gmail.com',
+          password: 'Nasser@1973_App',
+        });
+
+        if (!error && data?.session) {
+          setSession(data.session);
+          setUser(data.user);
+        }
+        setIsLoading(false);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -51,14 +64,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     if (!isSupabaseConfigured || !supabase) {
-      // Local demo login
       setUser({
-        id: 'local-owner-user',
+        id: '6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4',
         app_metadata: {},
         user_metadata: { name: 'صاحب المشروع' },
         aud: 'authenticated',
         created_at: new Date().toISOString(),
-        email: email || 'admin@promptgallery.local',
+        email: email || 'geminiabufarah@gmail.com',
       } as User);
       return { error: null };
     }
