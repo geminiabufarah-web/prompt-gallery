@@ -114,8 +114,9 @@ export const CompareViewModal: React.FC = () => {
                   {/* Image with carousel arrows if multi-image */}
                   <div className="relative aspect-square rounded-xl overflow-hidden bg-black/50 border border-surface-border">
                     <img
-                      src={currentImg.image_path || currentImg.thumbnail_path}
+                      src={currentImg.thumbnail_path || currentImg.image_path}
                       alt=""
+                      loading="lazy"
                       className="w-full h-full object-contain"
                     />
 

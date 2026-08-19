@@ -32,15 +32,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    const client = supabase;
+
     // Check existing session or auto-login with owner
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+    client.auth.getSession().then(async ({ data: { session: currentSession } }) => {
       if (currentSession) {
         setSession(currentSession);
         setUser(currentSession.user);
         setIsLoading(false);
       } else {
         // Auto-login single owner account seamlessly
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await client.auth.signInWithPassword({
           email: 'geminiabufarah@gmail.com',
           password: 'Nasser@1973_App',
         });
@@ -53,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);

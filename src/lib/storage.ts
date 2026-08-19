@@ -1,6 +1,6 @@
 import { Entry, Collection, Tag, EntryImage } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
-import { createThumbnail, fileToDataUrl } from './imageUtils';
+import { createThumbnail, compressAndConvertToWebP, fileToDataUrl } from './imageUtils';
 
 const LOCAL_STORAGE_ENTRIES_KEY = 'prompt_gallery_entries';
 const LOCAL_STORAGE_COLLECTIONS_KEY = 'prompt_gallery_collections';
@@ -333,35 +333,49 @@ export class StorageService {
     return populated;
   }
 
-  // --- Image Upload to Supabase Storage (Free, 0 credit card) ---
+  // --- Image Upload to Supabase Storage (Optimized WebP, Free Tier friendly) ---
   static async uploadSingleImageFile(
     file: File,
     userId: string = 'user',
     entryId: string = Date.now().toString(),
     index: number = 0
   ): Promise<{ imagePath: string; thumbnailPath: string }> {
-    const { blob: thumbBlob, dataUrl: thumbDataUrl } = await createThumbnail(file);
+    // Generate both Full WebP (max 2048px, high quality) and Thumbnail WebP (max 400px) concurrently client-side
+    let fullWebp: { blob: Blob; dataUrl: string };
+    let thumbWebp: { blob: Blob; dataUrl: string };
+
+    try {
+      [fullWebp, thumbWebp] = await Promise.all([
+        compressAndConvertToWebP(file, 2048, 2048, 0.85),
+        createThumbnail(file, 400, 400, 0.80),
+      ]);
+    } catch (conversionErr) {
+      console.warn('WebP compression failed, falling back to raw file:', conversionErr);
+      const rawDataUrl = await fileToDataUrl(file);
+      const thumb = await createThumbnail(file, 400, 400, 0.80).catch(() => ({ blob: file, dataUrl: rawDataUrl }));
+      fullWebp = { blob: file, dataUrl: rawDataUrl };
+      thumbWebp = thumb;
+    }
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const ext = file.name.split('.').pop() || 'jpg';
-        const originalPath = `${userId}/${entryId}/orig_${index}_${Date.now()}.${ext}`;
+        const fullPath = `${userId}/${entryId}/full_${index}_${Date.now()}.webp`;
         const thumbPath = `${userId}/${entryId}/thumb_${index}_${Date.now()}.webp`;
 
-        // Upload original
+        // Upload Full WebP
         const { error: origErr } = await supabase.storage
           .from('prompt-images')
-          .upload(originalPath, file, {
-            contentType: file.type || 'image/jpeg',
+          .upload(fullPath, fullWebp.blob, {
+            contentType: 'image/webp',
             upsert: true
           });
 
-        if (origErr) console.warn('Supabase storage orig upload error:', origErr);
+        if (origErr) console.warn('Supabase storage full image upload error:', origErr);
 
-        // Upload thumbnail
+        // Upload Thumbnail WebP
         const { error: thumbErr } = await supabase.storage
           .from('prompt-images')
-          .upload(thumbPath, thumbBlob, {
+          .upload(thumbPath, thumbWebp.blob, {
             contentType: 'image/webp',
             upsert: true
           });
@@ -369,7 +383,7 @@ export class StorageService {
         if (thumbErr) console.warn('Supabase storage thumb upload error:', thumbErr);
 
         if (!origErr) {
-          const { data: origUrlData } = supabase.storage.from('prompt-images').getPublicUrl(originalPath);
+          const { data: origUrlData } = supabase.storage.from('prompt-images').getPublicUrl(fullPath);
           const { data: thumbUrlData } = supabase.storage.from('prompt-images').getPublicUrl(thumbPath);
 
           return {
@@ -378,15 +392,14 @@ export class StorageService {
           };
         }
       } catch (err) {
-        console.warn('Supabase storage upload failed, using fallback:', err);
+        console.warn('Supabase storage upload failed, using fallback WebP dataUrls:', err);
       }
     }
 
-    // Fallback if offline
-    const originalDataUrl = await fileToDataUrl(file);
+    // Fallback if offline or Supabase not configured: return client-side compressed WebP Data URLs
     return {
-      imagePath: originalDataUrl,
-      thumbnailPath: thumbDataUrl,
+      imagePath: fullWebp.dataUrl,
+      thumbnailPath: thumbWebp.dataUrl,
     };
   }
 
