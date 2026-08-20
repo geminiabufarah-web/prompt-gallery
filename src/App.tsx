@@ -11,6 +11,7 @@ import { CompareViewModal } from './components/CompareViewModal';
 import { CollectionsModal } from './components/CollectionsModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LoginModal } from './components/LoginModal';
+import { ImageSplitCompareModal } from './components/ImageSplitCompareModal';
 import { ToastContainer } from './components/Toast';
 
 const MainLayout: React.FC = () => {
@@ -41,6 +42,7 @@ const MainLayout: React.FC = () => {
       <EntryFormModal />
       <DiffViewModal />
       <CompareViewModal />
+      <ImageSplitCompareModal />
       <CollectionsModal />
       <SettingsModal />
       <LoginModal />

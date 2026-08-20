@@ -12,7 +12,8 @@ import {
   Columns, 
   X,
   LogIn,
-  LogOut
+  LogOut,
+  Sliders
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -31,7 +32,8 @@ export const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, isSidebarOpen }) 
     isCompareSelectMode,
     toggleCompareSelectMode,
     compareSelectedEntryIds,
-    openCompareModal
+    openCompareModal,
+    openImageSplitModal
   } = useApp();
 
   const { user, isConfigured, logout } = useAuth();
@@ -108,6 +110,16 @@ export const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, isSidebarOpen }) 
             <span className="hidden md:inline">
               {isCompareSelectMode ? `مقارنة (${compareSelectedEntryIds.length})` : 'مقارنة'}
             </span>
+          </button>
+
+          {/* Interactive Split Slider Compare Button */}
+          <button
+            onClick={() => openImageSplitModal()}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-gradient-to-r from-cyan-500/15 via-purple-500/15 to-fuchsia-500/15 hover:from-cyan-500/25 hover:to-fuchsia-500/25 border border-cyan-500/30 text-cyan-300 hover:text-white transition-all shadow-sm"
+            title="مقارنة تفاعلية لأي صورتين بسلايدر فاصل في المنتصف"
+          >
+            <Sliders className="w-4 h-4 text-cyan-400" />
+            <span className="hidden sm:inline">سلايدر المقارنة</span>
           </button>
 
           {/* If comparing and items selected, show open compare */}

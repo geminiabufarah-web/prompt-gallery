@@ -115,26 +115,49 @@ export class StorageService {
   }
 
   static async createCollection(name: string, description?: string): Promise<Collection> {
+    const trimmed = name.trim();
     if (isSupabaseConfigured && supabase) {
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Check if collection already exists
+      let query = supabase.from('collections').select('*').ilike('name', trimmed);
+      if (user?.id) {
+        query = query.eq('user_id', user.id);
+      }
+      const { data: existingCol } = await query.maybeSingle();
+      if (existingCol) return existingCol;
+
       const { data, error } = await supabase
         .from('collections')
         .insert({
           user_id: user?.id,
-          name,
-          description,
+          name: trimmed,
+          description: description?.trim() || null,
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') {
+          const { data: fallbackCol } = await supabase
+            .from('collections')
+            .select('*')
+            .ilike('name', trimmed)
+            .maybeSingle();
+          if (fallbackCol) return fallbackCol;
+        }
+        throw error;
+      }
       return data;
     }
 
     const collections = this.getLocalCollections();
+    const existing = collections.find(c => c.name.toLowerCase() === trimmed.toLowerCase());
+    if (existing) return existing;
+
     const newCol: Collection = {
       id: 'col-' + Date.now(),
-      name,
+      name: trimmed,
       description,
       created_at: new Date().toISOString(),
     };
@@ -207,11 +230,24 @@ export class StorageService {
   }
 
   static async createTag(name: string): Promise<Tag> {
-    const trimmed = name.trim();
+    const trimmed = name.trim().replace(/^#/, '');
     if (!trimmed) throw new Error('Tag name cannot be empty');
 
     if (isSupabaseConfigured && supabase) {
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Check if tag already exists for this user (or globally)
+      let query = supabase.from('tags').select('*').ilike('name', trimmed);
+      if (user?.id) {
+        query = query.eq('user_id', user.id);
+      }
+      const { data: existingTag } = await query.maybeSingle();
+
+      if (existingTag) {
+        return existingTag;
+      }
+
+      // Try inserting the new tag
       const { data, error } = await supabase
         .from('tags')
         .insert({
@@ -221,7 +257,18 @@ export class StorageService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Handle race condition or duplicate key conflict gracefully
+        if (error.code === '23505') {
+          const { data: fallbackTag } = await supabase
+            .from('tags')
+            .select('*')
+            .ilike('name', trimmed)
+            .maybeSingle();
+          if (fallbackTag) return fallbackTag;
+        }
+        throw error;
+      }
       return data;
     }
 
@@ -462,8 +509,9 @@ export class StorageService {
       }
 
       // Link tags
-      if (tagIds.length > 0) {
-        const entryTagsToInsert = tagIds.map(tagId => ({
+      const uniqueTagIds = Array.from(new Set(tagIds));
+      if (uniqueTagIds.length > 0) {
+        const entryTagsToInsert = uniqueTagIds.map(tagId => ({
           entry_id: newId,
           tag_id: tagId,
         }));
@@ -536,8 +584,9 @@ export class StorageService {
 
       if (tagIds) {
         await supabase.from('entry_tags').delete().eq('entry_id', id);
-        if (tagIds.length > 0) {
-          const entryTagsToInsert = tagIds.map(tagId => ({
+        const uniqueTagIds = Array.from(new Set(tagIds));
+        if (uniqueTagIds.length > 0) {
+          const entryTagsToInsert = uniqueTagIds.map(tagId => ({
             entry_id: id,
             tag_id: tagId,
           }));
@@ -594,6 +643,56 @@ export class StorageService {
 
     const entries = this.getLocalEntries().filter(e => e.id !== id);
     localStorage.setItem(LOCAL_STORAGE_ENTRIES_KEY, JSON.stringify(entries));
+  }
+
+  /**
+   * Merges a source duplicate entry into a target primary entry:
+   * transfers all unique images from source to target, updates target, and deletes source entry.
+   */
+  static async mergeEntries(targetEntryId: string, sourceEntryId: string): Promise<Entry> {
+    const entries = await this.getEntries();
+    const target = entries.find(e => e.id === targetEntryId);
+    const source = entries.find(e => e.id === sourceEntryId);
+
+    if (!target || !source) {
+      throw new Error('تعذر العثور على أحد الإدخالات المراد دمجها');
+    }
+
+    const targetImages: EntryImage[] = (target.images && target.images.length > 0)
+      ? [...target.images]
+      : [{ id: `img-t-${Date.now()}`, image_path: target.image_path, thumbnail_path: target.thumbnail_path, is_primary: true }];
+
+    const sourceImages: EntryImage[] = (source.images && source.images.length > 0)
+      ? source.images
+      : [{ id: `img-s-${Date.now()}`, image_path: source.image_path, thumbnail_path: source.thumbnail_path, is_primary: false }];
+
+    // Avoid adding duplicate image URLs
+    const existingPaths = new Set(targetImages.map(img => img.image_path));
+    const newImagesToAdd: EntryImage[] = [];
+
+    sourceImages.forEach((img, i) => {
+      if (!existingPaths.has(img.image_path)) {
+        newImagesToAdd.push({
+          id: `img-merged-${Date.now()}-${i}`,
+          image_path: img.image_path,
+          thumbnail_path: img.thumbnail_path,
+          is_primary: false,
+        });
+        existingPaths.add(img.image_path);
+      }
+    });
+
+    const combinedImages = [...targetImages, ...newImagesToAdd];
+
+    // Update target entry with the merged images
+    const updatedTarget = await this.updateEntry(targetEntryId, {
+      images: combinedImages,
+    });
+
+    // Delete the source duplicate entry
+    await this.deleteEntry(sourceEntryId);
+
+    return updatedTarget;
   }
 
   static async toggleFavorite(id: string, currentStatus: boolean): Promise<boolean> {

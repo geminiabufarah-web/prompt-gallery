@@ -57,10 +57,16 @@ interface AppContextType {
   isLoginModalOpen: boolean;
   setIsLoginModalOpen: (open: boolean) => void;
 
+  isImageSplitModalOpen: boolean;
+  openImageSplitModal: (initialA?: { url: string; prompt: string; model?: string } | null, initialB?: { url: string; prompt: string; model?: string } | null) => void;
+  closeImageSplitModal: () => void;
+  splitModalInitialImages: [{ url: string; prompt: string; model?: string } | null, { url: string; prompt: string; model?: string } | null] | null;
+
   // Actions
   refreshData: () => Promise<void>;
   toggleFavorite: (entryId: string) => Promise<void>;
   deleteEntry: (entryId: string) => Promise<void>;
+  mergeEntries: (targetEntryId: string, sourceEntryId: string) => Promise<void>;
   
   // Toast notifications
   toasts: ToastMessage[];
@@ -120,6 +126,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isCollectionsModalOpen, setIsCollectionsModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  const [isImageSplitModalOpen, setIsImageSplitModalOpen] = useState(false);
+  const [splitModalInitialImages, setSplitModalInitialImages] = useState<[{ url: string; prompt: string; model?: string } | null, { url: string; prompt: string; model?: string } | null] | null>(null);
+
+  const openImageSplitModal = useCallback((initialA?: { url: string; prompt: string; model?: string } | null, initialB?: { url: string; prompt: string; model?: string } | null) => {
+    setSplitModalInitialImages([initialA || null, initialB || null]);
+    setIsImageSplitModalOpen(true);
+  }, []);
+
+  const closeImageSplitModal = useCallback(() => {
+    setIsImageSplitModalOpen(false);
+    setSplitModalInitialImages(null);
+  }, []);
 
   // Toast state
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -253,6 +272,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const mergeEntries = async (targetEntryId: string, sourceEntryId: string) => {
+    try {
+      const updated = await StorageService.mergeEntries(targetEntryId, sourceEntryId);
+      setEntries(prev => prev.filter(e => e.id !== sourceEntryId).map(e => e.id === targetEntryId ? updated : e));
+      if (selectedEntryForDetails?.id === sourceEntryId) {
+        setSelectedEntryForDetails(null);
+      } else if (selectedEntryForDetails?.id === targetEntryId) {
+        setSelectedEntryForDetails(updated);
+      }
+      addToast('تم نقل الصور بنجاح وحذف البرومبت المكرر 🚀', 'success');
+    } catch (err: any) {
+      console.error('Merge error:', err);
+      addToast(err.message || 'تعذر دمج البرومبتات', 'error');
+      throw err;
+    }
+  };
+
   const resetFilters = () => {
     setFilters({ ...defaultFilters, gridSize: filters.gridSize });
   };
@@ -364,9 +400,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsSettingsModalOpen,
         isLoginModalOpen,
         setIsLoginModalOpen,
+        isImageSplitModalOpen,
+        openImageSplitModal,
+        closeImageSplitModal,
+        splitModalInitialImages,
         refreshData,
         toggleFavorite,
         deleteEntry,
+        mergeEntries,
         toasts,
         addToast,
         removeToast,
