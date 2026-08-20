@@ -1,13 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
+import { StorageService } from '../lib/storage';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
   isConfigured: boolean;
-  login: (email: string, password: string) => Promise<{ error: Error | null }>;
+  login: (email: string, password: string) => Promise<{ error: Error | null; data?: any }>;
+  signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null; data?: any }>;
   logout: () => Promise<void>;
 }
 
@@ -18,15 +20,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Initialize session and primary account setup
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
       setUser({
         id: '6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4',
         app_metadata: {},
-        user_metadata: { name: 'صاحب المشروع' },
+        user_metadata: { name: 'المستخدم الحالي' },
         aud: 'authenticated',
         created_at: new Date().toISOString(),
-        email: 'geminiabufarah@gmail.com',
+        email: 'zaincash2006@gmail.com',
       } as User);
       setIsLoading(false);
       return;
@@ -34,30 +37,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const client = supabase;
 
-    // Check existing session or auto-login with owner
+    // Check existing session
     client.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-      if (currentSession) {
+      if (currentSession?.user) {
         setSession(currentSession);
         setUser(currentSession.user);
+        // Link any orphan entries to this user if needed
+        StorageService.assignOrphanEntriesToUser(currentSession.user.id);
         setIsLoading(false);
       } else {
-        // Auto-login single owner account seamlessly
-        const { data, error } = await client.auth.signInWithPassword({
-          email: 'geminiabufarah@gmail.com',
-          password: 'Nasser@1973_App',
-        });
+        // Automatically ensure primary user account (zaincash2006@gmail.com)
+        try {
+          const { data: signInData, error: signInError } = await client.auth.signInWithPassword({
+            email: 'zaincash2006@gmail.com',
+            password: 'NasserLolo82',
+          });
 
-        if (!error && data?.session) {
-          setSession(data.session);
-          setUser(data.user);
+          if (!signInError && signInData?.session) {
+            setSession(signInData.session);
+            setUser(signInData.user);
+            await StorageService.assignOrphanEntriesToUser(signInData.user.id);
+          } else {
+            // If user doesn't exist, create it
+            const { data: signUpData, error: signUpError } = await client.auth.signUp({
+              email: 'zaincash2006@gmail.com',
+              password: 'NasserLolo82',
+              options: {
+                data: { name: 'Zain Cash' }
+              }
+            });
+
+            if (!signUpError && signUpData?.user) {
+              if (signUpData.session) {
+                setSession(signUpData.session);
+                setUser(signUpData.user);
+                await StorageService.assignOrphanEntriesToUser(signUpData.user.id);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Auth auto-init note:', e);
+        } finally {
+          setIsLoading(false);
         }
-        setIsLoading(false);
       }
     });
 
-    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, newSession) => {
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+      if (newSession?.user) {
+        await StorageService.assignOrphanEntriesToUser(newSession.user.id);
+      }
       setIsLoading(false);
     });
 
@@ -66,22 +97,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     if (!isSupabaseConfigured || !supabase) {
-      setUser({
-        id: '6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4',
+      const mockUser = {
+        id: 'user-' + email.replace(/[^a-zA-Z0-9]/g, ''),
         app_metadata: {},
-        user_metadata: { name: 'صاحب المشروع' },
+        user_metadata: { name: email.split('@')[0] },
         aud: 'authenticated',
         created_at: new Date().toISOString(),
-        email: email || 'geminiabufarah@gmail.com',
-      } as User);
-      return { error: null };
+        email: email,
+      } as User;
+      setUser(mockUser);
+      return { error: null, data: { user: mockUser } };
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password,
     });
-    return { error };
+
+    if (!error && data?.user) {
+      await StorageService.assignOrphanEntriesToUser(data.user.id);
+    }
+
+    return { error, data };
+  };
+
+  const signUp = async (email: string, password: string, name?: string) => {
+    if (!isSupabaseConfigured || !supabase) {
+      const mockUser = {
+        id: 'user-' + email.replace(/[^a-zA-Z0-9]/g, ''),
+        app_metadata: {},
+        user_metadata: { name: name || email.split('@')[0] },
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        email: email,
+      } as User;
+      setUser(mockUser);
+      return { error: null, data: { user: mockUser } };
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: password,
+      options: {
+        data: { name: name?.trim() || email.split('@')[0] }
+      }
+    });
+
+    return { error, data };
   };
 
   const logout = async () => {
@@ -100,6 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         isConfigured: isSupabaseConfigured,
         login,
+        signUp,
         logout,
       }}
     >

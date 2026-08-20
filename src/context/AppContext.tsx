@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { Entry, Collection, Tag, FilterState, ImageCompressionSettings } from '../types';
 import { StorageService } from '../lib/storage';
 import { getSavedCompressionSettings, saveCompressionSettings, DEFAULT_COMPRESSION_SETTINGS } from '../lib/imageUtils';
+import { useAuth } from './AuthContext';
 
 interface ToastMessage {
   id: string;
@@ -88,6 +89,7 @@ const defaultFilters: FilterState = {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -184,7 +186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     refreshData();
-  }, []);
+  }, [user?.id, refreshData]);
 
   // Form helper
   const openEntryForm = (toEdit?: Entry | null, parent?: Entry | null) => {

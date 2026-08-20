@@ -76,20 +76,51 @@ const DEFAULT_ENTRIES: Entry[] = [
 ];
 
 export class StorageService {
+  // --- Orphan Data Assignment ---
+  static async assignOrphanEntriesToUser(userId: string) {
+    if (!isSupabaseConfigured || !supabase || !userId) return;
+    try {
+      await supabase
+        .from('entries')
+        .update({ user_id: userId })
+        .or('user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4');
+
+      await supabase
+        .from('collections')
+        .update({ user_id: userId })
+        .or('user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4');
+
+      await supabase
+        .from('tags')
+        .update({ user_id: userId })
+        .or('user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4');
+    } catch (err) {
+      console.warn('Orphan data assignment note:', err);
+    }
+  }
+
   // --- Collections ---
   static async getCollections(): Promise<Collection[]> {
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+
+      let query = supabase
         .from('collections')
         .select('*, entries(count)')
         .order('created_at', { ascending: false });
+
+      if (user?.id) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Supabase getCollections error:', error);
         return this.getLocalCollections();
       }
 
-      return data.map((item: any) => ({
+      return (data || []).map((item: any) => ({
         id: item.id,
         user_id: item.user_id,
         name: item.name,
@@ -202,10 +233,18 @@ export class StorageService {
   // --- Tags ---
   static async getTags(): Promise<Tag[]> {
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+
+      let query = supabase
         .from('tags')
         .select('*')
         .order('name', { ascending: true });
+
+      if (user?.id) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Supabase getTags error:', error);
@@ -289,7 +328,9 @@ export class StorageService {
   // --- Entries ---
   static async getEntries(): Promise<Entry[]> {
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+
+      let query = supabase
         .from('entries')
         .select(`
           *,
@@ -300,6 +341,12 @@ export class StorageService {
           )
         `)
         .order('created_at', { ascending: false });
+
+      if (user?.id) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Supabase getEntries error:', error);
