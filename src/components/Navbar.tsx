@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -13,7 +13,8 @@ import {
   X,
   LogIn,
   LogOut,
-  Sliders
+  Sliders,
+  CheckCircle2
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -36,7 +37,20 @@ export const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, isSidebarOpen }) 
     openImageSplitModal
   } = useApp();
 
-  const { user, isConfigured, logout } = useAuth();
+  const { user, logout } = useAuth();
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 w-full border-b border-surface-border bg-background/80 backdrop-blur-xl transition-all">
@@ -59,35 +73,37 @@ export const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, isSidebarOpen }) 
           <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 via-fuchsia-500 to-cyan-400 p-[1.5px] shadow-lg shadow-purple-500/20">
               <div className="w-full h-full bg-[#0f172a] rounded-[10px] flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-purple-300" />
+                <Sparkles className="w-5 h-5 text-purple-400" />
               </div>
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-base font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
-                Prompt Gallery
+              <h1 className="text-base font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent leading-none">
+                معرض البرومبتات
               </h1>
-              <p className="text-[10px] text-slate-400 font-medium">أرشيف ومكتبة البرومبتات</p>
+              <span className="text-[10px] text-purple-400 font-mono tracking-wider">PROMPT GALLERY</span>
             </div>
           </div>
         </div>
 
-        {/* Search Bar */}
+        {/* Global Search Bar */}
         <div className="flex-1 max-w-xl mx-2">
           <div className="relative group">
-            <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-purple-400 transition-colors" />
+            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-purple-400 transition-colors">
+              <Search className="w-4 h-4" />
+            </div>
             <input
               type="text"
-              placeholder="ابحث في البرومبت، النماذج، الملاحظات، أو الوسوم..."
+              placeholder="ابحث في البرومبت، النماذج، البارامترات، الملاحظات..."
               value={filters.searchQuery}
               onChange={(e) => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
-              className="w-full pl-9 pr-10 py-2 text-sm bg-surface-100/90 hover:bg-surface-50 focus:bg-surface-200 border border-surface-border focus:border-purple-500/50 rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all"
+              className="w-full bg-surface-100/80 border border-surface-border rounded-2xl pr-10 pl-10 py-2 text-xs sm:text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-purple-500/60 focus:bg-surface-100 transition-all shadow-inner"
             />
             {filters.searchQuery && (
               <button
                 onClick={() => setFilters(prev => ({ ...prev, searchQuery: '' }))}
-                className="absolute left-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 hover:text-slate-200 hover:bg-white/10"
+                className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 hover:text-white"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -146,7 +162,7 @@ export const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, isSidebarOpen }) 
           <button
             onClick={() => setIsSettingsModalOpen(true)}
             className="p-2 rounded-xl bg-surface-100/80 hover:bg-surface-50 border border-surface-border text-slate-300 hover:text-white transition-all"
-            title="الإعدادات والنسخ الاحتياطي"
+            title="الإعدادات وضغط الصور والنسخ الاحتياطي"
           >
             <Settings className="w-4 h-4 text-slate-400" />
           </button>
@@ -161,35 +177,75 @@ export const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, isSidebarOpen }) 
             <span className="sm:hidden">إضافة</span>
           </button>
 
-          {/* Auth State Button */}
+          {/* Auth State Button & Dropdown */}
           {user ? (
-            <div className="relative group">
+            <div className="relative" ref={userMenuRef}>
               <button
-                className="p-2 rounded-xl bg-surface-100 border border-surface-border text-purple-400 hover:text-purple-300 transition-all"
-                title={`مسجل كـ ${user.email || 'المستخدم'}`}
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className={`flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border transition-all ${
+                  isUserMenuOpen 
+                    ? 'bg-purple-500/20 border-purple-500/40 text-purple-300 ring-2 ring-purple-500/20' 
+                    : 'bg-surface-100/80 hover:bg-surface-50 border-surface-border text-slate-300 hover:text-white'
+                }`}
+                title="قائمة الحساب"
               >
-                <UserIcon className="w-4 h-4" />
-              </button>
-              <div className="absolute left-0 mt-2 w-48 py-1.5 bg-surface-200 border border-surface-border rounded-xl shadow-2xl hidden group-hover:block transition-all z-40">
-                <div className="px-3 py-1.5 border-b border-surface-border text-[11px] text-slate-400 truncate">
-                  {user.email || 'المستخدم'}
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-purple-600 to-cyan-500 text-white text-[11px] font-bold flex items-center justify-center shadow-sm">
+                  {(user.email || 'U')[0].toUpperCase()}
                 </div>
-                <button
-                  onClick={logout}
-                  className="w-full px-3 py-2 text-right text-xs text-rose-400 hover:bg-rose-500/10 flex items-center justify-between"
-                >
-                  <span>تسجيل الخروج</span>
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                <span className="hidden sm:inline text-xs font-medium max-w-[100px] truncate text-slate-200">
+                  {user.user_metadata?.name || user.email?.split('@')[0] || 'حسابي'}
+                </span>
+              </button>
+
+              {isUserMenuOpen && (
+                <div className="absolute left-0 mt-2 w-56 py-2 bg-surface-200 border border-surface-border rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-4 py-2.5 border-b border-surface-border">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-[10px] text-emerald-300 font-semibold">متصل حالياً</span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-200 truncate">
+                      {user.user_metadata?.name || 'مستخدم مسجل'}
+                    </p>
+                    <p className="text-[11px] text-slate-400 font-mono truncate" dir="ltr">
+                      {user.email}
+                    </p>
+                  </div>
+
+                  <div className="p-1 space-y-0.5">
+                    <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsLoginModalOpen(true);
+                      }}
+                      className="w-full px-3 py-2 text-right text-xs text-slate-300 hover:text-white hover:bg-surface-100 rounded-xl flex items-center justify-between transition-colors"
+                    >
+                      <span>تبديل الحساب / دخول آخر</span>
+                      <LogIn className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+
+                    <button
+                      onClick={async () => {
+                        setIsUserMenuOpen(false);
+                        await logout();
+                      }}
+                      className="w-full px-3 py-2 text-right text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl flex items-center justify-between transition-colors font-medium"
+                    >
+                      <span>تسجيل الخروج</span>
+                      <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <button
               onClick={() => setIsLoginModalOpen(true)}
-              className="p-2 rounded-xl bg-surface-100 border border-surface-border text-slate-300 hover:text-white"
-              title="تسجيل الدخول"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 transition-all"
+              title="تسجيل الدخول أو إنشاء حساب جديد"
             >
               <LogIn className="w-4 h-4" />
+              <span className="hidden sm:inline">دخول / حساب جديد</span>
             </button>
           )}
 
