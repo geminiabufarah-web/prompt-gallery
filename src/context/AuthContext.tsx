@@ -34,9 +34,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentSession?.user) {
         setSession(currentSession);
         setUser(currentSession.user);
-        if (currentSession.user.email === 'top2006design@gmail.com') {
-          await StorageService.assignOrphanEntriesToUser(currentSession.user.id);
-        }
       }
       setIsLoading(false);
     });
@@ -44,9 +41,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
-      if (newSession?.user && newSession.user.email === 'top2006design@gmail.com') {
-        await StorageService.assignOrphanEntriesToUser(newSession.user.id);
-      }
       setIsLoading(false);
     });
 
@@ -71,10 +65,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: email.trim(),
       password: password,
     });
-
-    if (!error && data?.user && data.user.email === 'top2006design@gmail.com') {
-      await StorageService.assignOrphanEntriesToUser(data.user.id);
-    }
 
     return { error, data };
   };

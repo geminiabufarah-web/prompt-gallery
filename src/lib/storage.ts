@@ -76,30 +76,6 @@ const DEFAULT_ENTRIES: Entry[] = [
 ];
 
 export class StorageService {
-  // --- Orphan Data Assignment ---
-  static async assignOrphanEntriesToUser(userId: string) {
-    if (!isSupabaseConfigured || !supabase || !userId) return;
-    try {
-      // Re-assign all previous entries, collections, and tags to this user (top2006design@gmail.com)
-      await supabase
-        .from('entries')
-        .update({ user_id: userId })
-        .neq('user_id', userId);
-
-      await supabase
-        .from('collections')
-        .update({ user_id: userId })
-        .neq('user_id', userId);
-
-      await supabase
-        .from('tags')
-        .update({ user_id: userId })
-        .neq('user_id', userId);
-    } catch (err) {
-      console.warn('Data assignment note:', err);
-    }
-  }
-
   // --- Collections ---
   static async getCollections(): Promise<Collection[]> {
     if (isSupabaseConfigured && supabase) {
