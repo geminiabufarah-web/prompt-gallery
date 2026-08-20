@@ -20,17 +20,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Initialize session and primary account setup
+  // Initialize session
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
-      setUser({
-        id: '6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4',
-        app_metadata: {},
-        user_metadata: { name: 'المصمم الرئيسي' },
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-        email: 'top2006design@gmail.com',
-      } as User);
       setIsLoading(false);
       return;
     }
@@ -45,43 +37,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentSession.user.email === 'top2006design@gmail.com') {
           await StorageService.assignOrphanEntriesToUser(currentSession.user.id);
         }
-        setIsLoading(false);
-      } else {
-        // Automatically sign in primary user account (top2006design@gmail.com)
-        try {
-          const { data: signInData, error: signInError } = await client.auth.signInWithPassword({
-            email: 'top2006design@gmail.com',
-            password: 'NasserLolo82',
-          });
-
-          if (!signInError && signInData?.session) {
-            setSession(signInData.session);
-            setUser(signInData.user);
-            await StorageService.assignOrphanEntriesToUser(signInData.user.id);
-          } else {
-            // If user doesn't exist yet, create account
-            const { data: signUpData, error: signUpError } = await client.auth.signUp({
-              email: 'top2006design@gmail.com',
-              password: 'NasserLolo82',
-              options: {
-                data: { name: 'Top Design' }
-              }
-            });
-
-            if (!signUpError && signUpData?.user) {
-              if (signUpData.session) {
-                setSession(signUpData.session);
-                setUser(signUpData.user);
-                await StorageService.assignOrphanEntriesToUser(signUpData.user.id);
-              }
-            }
-          }
-        } catch (e) {
-          console.warn('Auth auto-init note:', e);
-        } finally {
-          setIsLoading(false);
-        }
       }
+      setIsLoading(false);
     });
 
     const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, newSession) => {

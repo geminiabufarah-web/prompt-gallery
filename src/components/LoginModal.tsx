@@ -38,9 +38,13 @@ export const LoginModal: React.FC = () => {
 
     try {
       if (mode === 'signin') {
-        const { error, data } = await login(email, password);
+        const { error } = await login(email, password);
         if (error) {
-          setErrorMsg(error.message || 'بيانات الدخول غير صحيحة');
+          if (error.message.toLowerCase().includes('invalid login credentials')) {
+            setErrorMsg('البريد الإلكتروني أو كلمة المرور غير صحيحة، أو أن الحساب غير موجود بعد. يمكنك إنشاء حساب جديد من تبويب "حساب جديد".');
+          } else {
+            setErrorMsg(error.message || 'بيانات الدخول غير صحيحة');
+          }
         } else {
           addToast('تم تسجيل الدخول بنجاح 👋', 'success');
           setIsLoginModalOpen(false);
@@ -48,7 +52,13 @@ export const LoginModal: React.FC = () => {
       } else {
         const { error, data } = await signUp(email, password, name);
         if (error) {
-          setErrorMsg(error.message || 'تعذر إنشاء الحساب، يرجى المحاولة لاحقاً');
+          if (error.message.toLowerCase().includes('rate limit')) {
+            setErrorMsg('تم تجاوز الحد المسموح لإرسال رسائل التأكيد عبر البريد في Supabase. يرجى إيقاف "Confirm email" من إعدادات Authentication في لوحة Supabase لإتاحة تسجيل المستخدمين فورياً دون الحاجة لإرسال رسائل بريد.');
+          } else if (error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already exists')) {
+            setErrorMsg('هذا البريد الإلكتروني مسجل مسبقاً. يرجى التبديل لتبويب "تسجيل الدخول".');
+          } else {
+            setErrorMsg(error.message || 'تعذر إنشاء الحساب، يرجى المحاولة لاحقاً');
+          }
         } else {
           if (data?.session) {
             addToast('تم إنشاء الحساب وتسجيل الدخول بنجاح 🎉', 'success');
