@@ -80,20 +80,21 @@ export class StorageService {
   static async assignOrphanEntriesToUser(userId: string) {
     if (!isSupabaseConfigured || !supabase || !userId) return;
     try {
+      // Re-assign existing unassigned or legacy-linked items to the primary owner
       await supabase
         .from('entries')
         .update({ user_id: userId })
-        .or('user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4');
+        .or(`user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4,user_id.eq.user-zaincash2006gmailcom`);
 
       await supabase
         .from('collections')
         .update({ user_id: userId })
-        .or('user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4');
+        .or(`user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4,user_id.eq.user-zaincash2006gmailcom`);
 
       await supabase
         .from('tags')
         .update({ user_id: userId })
-        .or('user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4');
+        .or(`user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4,user_id.eq.user-zaincash2006gmailcom`);
     } catch (err) {
       console.warn('Orphan data assignment note:', err);
     }
@@ -104,20 +105,20 @@ export class StorageService {
     if (isSupabaseConfigured && supabase) {
       const { data: { user } } = await supabase.auth.getUser();
 
-      let query = supabase
-        .from('collections')
-        .select('*, entries(count)')
-        .order('created_at', { ascending: false });
-
-      if (user?.id) {
-        query = query.eq('user_id', user.id);
+      // If user is not logged in, return empty (zero collections)
+      if (!user) {
+        return [];
       }
 
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from('collections')
+        .select('*, entries(count)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Supabase getCollections error:', error);
-        return this.getLocalCollections();
+        return [];
       }
 
       return (data || []).map((item: any) => ({
@@ -129,7 +130,7 @@ export class StorageService {
         entry_count: item.entries?.[0]?.count || 0,
       }));
     }
-    return this.getLocalCollections();
+    return [];
   }
 
   static getLocalCollections(): Collection[] {
@@ -235,24 +236,24 @@ export class StorageService {
     if (isSupabaseConfigured && supabase) {
       const { data: { user } } = await supabase.auth.getUser();
 
-      let query = supabase
-        .from('tags')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (user?.id) {
-        query = query.eq('user_id', user.id);
+      // If user is not logged in, return empty
+      if (!user) {
+        return [];
       }
 
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from('tags')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
 
       if (error) {
         console.error('Supabase getTags error:', error);
-        return this.getLocalTags();
+        return [];
       }
       return data || [];
     }
-    return this.getLocalTags();
+    return [];
   }
 
   static getLocalTags(): Tag[] {
@@ -330,7 +331,12 @@ export class StorageService {
     if (isSupabaseConfigured && supabase) {
       const { data: { user } } = await supabase.auth.getUser();
 
-      let query = supabase
+      // If user is not logged in, return empty (strictly zero entries)
+      if (!user) {
+        return [];
+      }
+
+      const { data, error } = await supabase
         .from('entries')
         .select(`
           *,
@@ -340,17 +346,12 @@ export class StorageService {
             tag:tags(*)
           )
         `)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-
-      if (user?.id) {
-        query = query.eq('user_id', user.id);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Supabase getEntries error:', error);
-        return this.getLocalEntries();
+        return [];
       }
 
       const entries: Entry[] = (data || []).map((row: any) => ({

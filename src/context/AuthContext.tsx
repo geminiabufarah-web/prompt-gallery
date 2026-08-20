@@ -26,10 +26,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser({
         id: '6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4',
         app_metadata: {},
-        user_metadata: { name: 'المستخدم الحالي' },
+        user_metadata: { name: 'المصمم الرئيسي' },
         aud: 'authenticated',
         created_at: new Date().toISOString(),
-        email: 'zaincash2006@gmail.com',
+        email: 'top2006design@gmail.com',
       } as User);
       setIsLoading(false);
       return;
@@ -42,14 +42,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentSession?.user) {
         setSession(currentSession);
         setUser(currentSession.user);
-        // Link any orphan entries to this user if needed
-        StorageService.assignOrphanEntriesToUser(currentSession.user.id);
+        if (currentSession.user.email === 'top2006design@gmail.com') {
+          await StorageService.assignOrphanEntriesToUser(currentSession.user.id);
+        }
         setIsLoading(false);
       } else {
-        // Automatically ensure primary user account (zaincash2006@gmail.com)
+        // Automatically sign in primary user account (top2006design@gmail.com)
         try {
           const { data: signInData, error: signInError } = await client.auth.signInWithPassword({
-            email: 'zaincash2006@gmail.com',
+            email: 'top2006design@gmail.com',
             password: 'NasserLolo82',
           });
 
@@ -58,12 +59,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(signInData.user);
             await StorageService.assignOrphanEntriesToUser(signInData.user.id);
           } else {
-            // If user doesn't exist, create it
+            // If user doesn't exist yet, create account
             const { data: signUpData, error: signUpError } = await client.auth.signUp({
-              email: 'zaincash2006@gmail.com',
+              email: 'top2006design@gmail.com',
               password: 'NasserLolo82',
               options: {
-                data: { name: 'Zain Cash' }
+                data: { name: 'Top Design' }
               }
             });
 
@@ -86,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
-      if (newSession?.user) {
+      if (newSession?.user && newSession.user.email === 'top2006design@gmail.com') {
         await StorageService.assignOrphanEntriesToUser(newSession.user.id);
       }
       setIsLoading(false);
@@ -114,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password: password,
     });
 
-    if (!error && data?.user) {
+    if (!error && data?.user && data.user.email === 'top2006design@gmail.com') {
       await StorageService.assignOrphanEntriesToUser(data.user.id);
     }
 

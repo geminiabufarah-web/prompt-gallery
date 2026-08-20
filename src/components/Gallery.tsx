@@ -1,7 +1,8 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { EntryCard } from './EntryCard';
-import { LayoutGrid, Grid3X3, Grid2X2, Sparkles, Plus, ImageOff, Columns, X } from 'lucide-react';
+import { LayoutGrid, Grid3X3, Grid2X2, Sparkles, Plus, ImageOff, Columns, X, Lock, LogIn } from 'lucide-react';
 
 export const Gallery: React.FC = () => {
   const { 
@@ -10,6 +11,7 @@ export const Gallery: React.FC = () => {
     filters, 
     setFilters, 
     openEntryForm, 
+    setIsLoginModalOpen,
     isLoading,
     isCompareSelectMode,
     toggleCompareSelectMode,
@@ -17,6 +19,8 @@ export const Gallery: React.FC = () => {
     clearCompareSelection,
     openCompareModal
   } = useApp();
+
+  const { user } = useAuth();
 
   const getGridColsClass = () => {
     switch (filters.gridSize) {
@@ -38,52 +42,78 @@ export const Gallery: React.FC = () => {
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
             <span>المعرض</span>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-              {filteredEntries.length} {filteredEntries.length === 1 ? 'إدخال' : 'إدخالات'}
-            </span>
+            {user && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                {filteredEntries.length} {filteredEntries.length === 1 ? 'إدخال' : 'إدخالات'}
+              </span>
+            )}
           </h2>
         </div>
 
-        {/* Grid Sizing Switcher */}
-        <div className="flex items-center gap-1 bg-surface-100/90 border border-surface-border p-1 rounded-xl">
-          <button
-            onClick={() => setFilters(prev => ({ ...prev, gridSize: 'small' }))}
-            className={`p-1.5 rounded-lg transition-all ${
-              filters.gridSize === 'small'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-surface-50'
-            }`}
-            title="شبكة مصغرة"
-          >
-            <Grid3X3 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setFilters(prev => ({ ...prev, gridSize: 'medium' }))}
-            className={`p-1.5 rounded-lg transition-all ${
-              filters.gridSize === 'medium'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-surface-50'
-            }`}
-            title="شبكة متوسطة"
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setFilters(prev => ({ ...prev, gridSize: 'large' }))}
-            className={`p-1.5 rounded-lg transition-all ${
-              filters.gridSize === 'large'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-surface-50'
-            }`}
-            title="شبكة كبيرة"
-          >
-            <Grid2X2 className="w-4 h-4" />
-          </button>
-        </div>
+        {/* Grid Sizing Switcher (only if logged in) */}
+        {user && (
+          <div className="flex items-center gap-1 bg-surface-100/90 border border-surface-border p-1 rounded-xl">
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, gridSize: 'small' }))}
+              className={`p-1.5 rounded-lg transition-all ${
+                filters.gridSize === 'small'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-surface-50'
+              }`}
+              title="شبكة مصغرة"
+            >
+              <Grid3X3 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, gridSize: 'medium' }))}
+              className={`p-1.5 rounded-lg transition-all ${
+                filters.gridSize === 'medium'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-surface-50'
+              }`}
+              title="شبكة متوسطة"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, gridSize: 'large' }))}
+              className={`p-1.5 rounded-lg transition-all ${
+                filters.gridSize === 'large'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-surface-50'
+              }`}
+              title="شبكة كبيرة"
+            >
+              <Grid2X2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Loading Skeleton */}
-      {isLoading ? (
+      {/* If Not Logged In */}
+      {!user ? (
+        <div className="flex flex-col items-center justify-center py-20 px-6 text-center rounded-3xl border border-dashed border-purple-500/30 bg-surface-100/40 space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-600/20 to-indigo-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shadow-lg shadow-purple-500/10">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div className="max-w-md space-y-1.5">
+            <h3 className="text-lg font-bold text-slate-100">
+              سجل الدخول لعرض وإدارة برومبتاتك
+            </h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              لحماية خصوصية المحتوى، لا تظهر البرومبتات إلا بعد تسجيل الدخول. قم بتسجيل الدخول بحسابك أو أنشئ حساباً جديداً للوصول إلى مساحتك الخاصة.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsLoginModalOpen(true)}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-600/25 active:scale-95 transition-all"
+          >
+            <LogIn className="w-4 h-4" />
+            <span>تسجيل الدخول / إنشاء حساب جديد</span>
+          </button>
+        </div>
+      ) : isLoading ? (
+        /* Loading Skeleton */
         <div className={`grid ${getGridColsClass()}`}>
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="aspect-square rounded-2xl bg-surface-100/60 border border-surface-border animate-pulse" />
@@ -96,7 +126,7 @@ export const Gallery: React.FC = () => {
           ))}
         </div>
       ) : (
-        /* Empty State */
+        /* Empty State for Logged-In User */
         <div className="flex flex-col items-center justify-center py-20 px-4 text-center rounded-3xl border border-dashed border-surface-border bg-surface-100/30">
           <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-4 text-purple-400">
             {entries.length === 0 ? (
@@ -106,11 +136,11 @@ export const Gallery: React.FC = () => {
             )}
           </div>
           <h3 className="text-lg font-bold text-slate-200 mb-1">
-            {entries.length === 0 ? 'لا توجد أي برومبتات محفوظة بعد' : 'لا توجد نتائج مطابقة لبحثك'}
+            {entries.length === 0 ? 'لا توجد أي برومبتات في حسابك بعد' : 'لا توجد نتائج مطابقة لبحثك'}
           </h3>
           <p className="text-sm text-slate-400 max-w-sm mb-6">
             {entries.length === 0
-              ? 'ابدأ بإضافة أول صورة وبرومبت لأرشفتها وتتبع تعديلاتها المستقبلية بسهولة.'
+              ? 'ابدأ بإضافة أول صورة وبرومبت لحفظها في مكتبتك الخاصة ومقارنتها لاحقاً.'
               : 'جرب تغيير كلمات البحث أو إعادة تعيين الفلاتر لعرض مزيد من الصور.'}
           </p>
 
@@ -134,7 +164,7 @@ export const Gallery: React.FC = () => {
       )}
 
       {/* Floating Compare Action Bar */}
-      {isCompareSelectMode && (
+      {isCompareSelectMode && user && (
         <div className="fixed bottom-6 inset-x-0 mx-auto max-w-lg z-40 px-4 pointer-events-none">
           <div className="pointer-events-auto flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-surface-200/95 border border-cyan-500/40 backdrop-blur-xl shadow-2xl shadow-black/80 animate-in slide-in-from-bottom-6">
             <div className="flex items-center gap-2.5">
