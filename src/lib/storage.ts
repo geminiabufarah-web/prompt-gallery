@@ -80,23 +80,23 @@ export class StorageService {
   static async assignOrphanEntriesToUser(userId: string) {
     if (!isSupabaseConfigured || !supabase || !userId) return;
     try {
-      // Re-assign existing unassigned or legacy-linked items to the primary owner
+      // Re-assign all previous entries, collections, and tags to this user (top2006design@gmail.com)
       await supabase
         .from('entries')
         .update({ user_id: userId })
-        .or(`user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4,user_id.eq.user-zaincash2006gmailcom`);
+        .neq('user_id', userId);
 
       await supabase
         .from('collections')
         .update({ user_id: userId })
-        .or(`user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4,user_id.eq.user-zaincash2006gmailcom`);
+        .neq('user_id', userId);
 
       await supabase
         .from('tags')
         .update({ user_id: userId })
-        .or(`user_id.is.null,user_id.eq.6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4,user_id.eq.user-zaincash2006gmailcom`);
+        .neq('user_id', userId);
     } catch (err) {
-      console.warn('Orphan data assignment note:', err);
+      console.warn('Data assignment note:', err);
     }
   }
 
@@ -523,7 +523,7 @@ export class StorageService {
         .from('entries')
         .insert({
           id: newId,
-          user_id: user?.id || '6cb3d1ff-e1a1-4ff9-ac11-bb925fee1ae4',
+          user_id: user?.id,
           collection_id: entryData.collection_id || null,
           parent_entry_id: entryData.parent_entry_id || null,
           image_path: primaryImage.image_path,
